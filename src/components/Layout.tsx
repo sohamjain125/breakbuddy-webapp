@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ChefHat, User, LogOut, Home } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,11 +11,15 @@ interface LayoutProps {
 
 const Layout = ({ children, userType }: LayoutProps) => {
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
   const handleLogout = () => {
-    // Handle logout logic here
+    logout();
     navigate('/');
   };
+
+  // Determine user type from Redux state if not provided
+  const currentUserType = userType || (user?.role === 'employee' ? 'user' : user?.role === 'chef' ? 'chef' : null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary to-background">
@@ -30,7 +35,7 @@ const Layout = ({ children, userType }: LayoutProps) => {
             </Link>
 
             <nav className="flex items-center space-x-4">
-              {userType === 'user' && (
+              {currentUserType === 'user' && (
                 <>
                   <Link to="/user/dashboard">
                     <Button variant="ghost" size="sm">
@@ -47,7 +52,7 @@ const Layout = ({ children, userType }: LayoutProps) => {
                 </>
               )}
 
-              {userType === 'chef' && (
+              {currentUserType === 'chef' && (
                 <Link to="/chef/dashboard">
                   <Button variant="ghost" size="sm">
                     <ChefHat className="h-4 w-4 mr-2" />
@@ -56,7 +61,7 @@ const Layout = ({ children, userType }: LayoutProps) => {
                 </Link>
               )}
 
-              {userType && (
+              {currentUserType && (
                 <Button variant="outline" size="sm" onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout

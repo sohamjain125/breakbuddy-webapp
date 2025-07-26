@@ -1,40 +1,95 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChefHat, User, Mail, Lock } from 'lucide-react';
+import { toast } from 'sonner';
 import Layout from '@/components/Layout';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { registerUser, loginUser, loginChef, clearError } from '@/store/slices/authSlice';
+import { registerSchema, loginSchema, chefLoginSchema, RegisterFormData, LoginFormData, ChefLoginFormData } from '@/validations/auth';
 
 const Login = () => {
   const navigate = useNavigate();
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [registerForm, setRegisterForm] = useState({ 
-    name: '', 
-    email: '', 
-    password: '', 
-    confirmPassword: '',
-    employeeId: '' 
+  const dispatch = useAppDispatch();
+  const { loading, error, isAuthenticated, user } = useAppSelector((state) => state.auth);
+
+  // Form hooks
+  const loginForm = useForm<LoginFormData>({
+    resolver: yupResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
   });
 
-  const handleUserLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Mock login - navigate to user dashboard
-    navigate('/user/dashboard');
+  const registerForm = useForm<RegisterFormData>({
+    resolver: yupResolver(registerSchema),
+    defaultValues: {
+      fullName: '',
+      employeeId: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
+
+  const chefLoginForm = useForm<ChefLoginFormData>({
+    resolver: yupResolver(chefLoginSchema),
+    defaultValues: {
+      chefId: '',
+      password: '',
+    },
+  });
+
+  // Handle authentication success
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'employee') {
+        navigate('/user/dashboard');
+        toast.success('Welcome back!');
+      } else if (user.role === 'chef') {
+        navigate('/chef/dashboard');
+        toast.success('Welcome to the kitchen!');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
+
+  const handleUserLogin = async (data: LoginFormData) => {
+    try {
+      await dispatch(loginUser(data)).unwrap();
+    } catch (error) {
+      // Error is handled by the slice
+    }
   };
 
-  const handleChefLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Mock login - navigate to chef dashboard
-    navigate('/chef/dashboard');
+  const handleChefLogin = async (data: ChefLoginFormData) => {
+    try {
+      await dispatch(loginChef(data)).unwrap();
+    } catch (error) {
+      // Error is handled by the slice
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Mock registration - navigate to user dashboard
-    navigate('/user/dashboard');
+  const handleRegister = async (data: RegisterFormData) => {
+    try {
+      await dispatch(registerUser(data)).unwrap();
+    } catch (error) {
+      // Error is handled by the slice
+    }
   };
 
   return (
@@ -66,7 +121,7 @@ const Login = () => {
                   <CardDescription>Sign in to book your breakfast</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleUserLogin} className="space-y-4">
+                  <form onSubmit={loginForm.handleSubmit(handleUserLogin)} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
                       <div className="relative">
@@ -75,11 +130,12 @@ const Login = () => {
                           id="email"
                           type="email"
                           placeholder="your.email@company.com"
-                          value={loginForm.email}
-                          onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                          {...loginForm.register('email')}
                           className="pl-10"
-                          required
                         />
+                        {loginForm.formState.errors.email && (
+                          <p className="text-sm text-red-500 mt-1">{loginForm.formState.errors.email.message}</p>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -89,15 +145,16 @@ const Login = () => {
                         <Input
                           id="password"
                           type="password"
-                          value={loginForm.password}
-                          onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                          {...loginForm.register('password')}
                           className="pl-10"
-                          required
                         />
+                        {loginForm.formState.errors.password && (
+                          <p className="text-sm text-red-500 mt-1">{loginForm.formState.errors.password.message}</p>
+                        )}
                       </div>
                     </div>
-                    <Button type="submit" className="w-full">
-                      Sign In
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Signing In...' : 'Sign In'}
                     </Button>
                   </form>
                 </CardContent>
@@ -114,25 +171,31 @@ const Login = () => {
                   <CardDescription>Access the kitchen dashboard</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleChefLogin} className="space-y-4">
+                  <form onSubmit={chefLoginForm.handleSubmit(handleChefLogin)} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="chef-id">Chef ID</Label>
                       <Input
                         id="chef-id"
                         placeholder="chef001"
-                        required
+                        {...chefLoginForm.register('chefId')}
                       />
+                      {chefLoginForm.formState.errors.chefId && (
+                        <p className="text-sm text-red-500 mt-1">{chefLoginForm.formState.errors.chefId.message}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="chef-password">Password</Label>
                       <Input
                         id="chef-password"
                         type="password"
-                        required
+                        {...chefLoginForm.register('password')}
                       />
+                      {chefLoginForm.formState.errors.password && (
+                        <p className="text-sm text-red-500 mt-1">{chefLoginForm.formState.errors.password.message}</p>
+                      )}
                     </div>
-                    <Button type="submit" className="w-full">
-                      Access Kitchen
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Accessing...' : 'Access Kitchen'}
                     </Button>
                   </form>
                 </CardContent>
@@ -146,57 +209,62 @@ const Login = () => {
                   <CardDescription>Create your employee account</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleRegister} className="space-y-4">
+                  <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
                       <Input
                         id="name"
-                        value={registerForm.name}
-                        onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                        required
+                        {...registerForm.register('fullName')}
                       />
+                      {registerForm.formState.errors.fullName && (
+                        <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.fullName.message}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="employee-id">Employee ID</Label>
                       <Input
                         id="employee-id"
-                        value={registerForm.employeeId}
-                        onChange={(e) => setRegisterForm({ ...registerForm, employeeId: e.target.value })}
-                        required
+                        {...registerForm.register('employeeId')}
                       />
+                      {registerForm.formState.errors.employeeId && (
+                        <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.employeeId.message}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reg-email">Email</Label>
                       <Input
                         id="reg-email"
                         type="email"
-                        value={registerForm.email}
-                        onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                        required
+                        {...registerForm.register('email')}
                       />
+                      {registerForm.formState.errors.email && (
+                        <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.email.message}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reg-password">Password</Label>
                       <Input
                         id="reg-password"
                         type="password"
-                        value={registerForm.password}
-                        onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                        required
+                        {...registerForm.register('password')}
                       />
+                      {registerForm.formState.errors.password && (
+                        <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.password.message}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirm-password">Confirm Password</Label>
                       <Input
                         id="confirm-password"
                         type="password"
-                        value={registerForm.confirmPassword}
-                        onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
-                        required
+                        {...registerForm.register('confirmPassword')}
                       />
+                      {registerForm.formState.errors.confirmPassword && (
+                        <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.confirmPassword.message}</p>
+                      )}
                     </div>
-                    <Button type="submit" className="w-full">
-                      Register
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Registering...' : 'Register'}
                     </Button>
                   </form>
                 </CardContent>
